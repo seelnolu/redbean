@@ -88,6 +88,13 @@ class RedBean_OODBBean implements IteratorAggregate, ArrayAccess, Countable {
 	 * @var string 
 	 */
 	private $aliasName = NULL;
+	
+	
+	private $toolbox = NULL;
+	
+	private $redbean = NULL;
+	
+	private $assocManager = NULL;
 
 	/**
 	 * By default own-lists and shared-lists no longer have IDs as keys (3.3+),
@@ -137,6 +144,10 @@ class RedBean_OODBBean implements IteratorAggregate, ArrayAccess, Countable {
 	 */
 	public function setBeanHelper(RedBean_BeanHelper $helper) {
 		$this->beanHelper = $helper;
+		//also cache the rest
+		$this->toolbox = $this->beanHelper->getToolbox();
+		$this->redbean = $this->toolbox->getRedBean();
+		$this->assocManager = $this->redbean->getAssociationManager();
 	}
 
 
@@ -435,7 +446,6 @@ class RedBean_OODBBean implements IteratorAggregate, ArrayAccess, Countable {
 			}
 		}
 		if ($this->beanHelper)
-		$toolbox = $this->beanHelper->getToolbox();
 		if ($this->withSql!=='') {
 			if (strpos($property,'own')===0) {
 				unset($this->properties[$property]);
@@ -447,7 +457,7 @@ class RedBean_OODBBean implements IteratorAggregate, ArrayAccess, Countable {
 				$this->setMeta('tainted',true); 
 				$type =  $this->getAlias($property);
 				$targetType = $this->properties[$fieldLink];
-				$bean =  $toolbox->getRedBean()->load($type,$targetType);
+				$bean =  $this->redbean->load($type,$targetType);
 				$this->properties[$property] = $bean;
 				return $this->properties[$property];
 			}
@@ -461,7 +471,7 @@ class RedBean_OODBBean implements IteratorAggregate, ArrayAccess, Countable {
 					$myFieldLink =  $this->getMeta('type').'_id';
 				}
 				$params = array_merge(array($this->getID()),$this->withParams);
-				$beans = $toolbox->getRedBean()->find($type,array(),array(" $myFieldLink = ? ".$this->withSql,$params));
+				$beans = $this->redbean->find($type,array(),array(" $myFieldLink = ? ".$this->withSql,$params));
 				$this->withSql = '';
 				$this->withParams = array();
 				$this->properties[$property] = $beans;
@@ -471,13 +481,13 @@ class RedBean_OODBBean implements IteratorAggregate, ArrayAccess, Countable {
 			}
 			if (strpos($property,'shared')===0 && ctype_upper(substr($property,6,1))) {
 				$type = (__lcfirst(str_replace('shared','',$property)));
-				$keys = $toolbox->getRedBean()->getAssociationManager()->related($this,$type);
+				$keys = $this->assocManager->related($this,$type);
 				if (!count($keys)) $beans = array(); else
 				if (trim($this->withSql)!=='') {
-					$beans = $toolbox->getRedBean()->find($type,array('id'=>$keys),array($this->withSql,$this->withParams),true);
+					$beans = $this->redbean->find($type,array('id'=>$keys),array($this->withSql,$this->withParams),true);
 				}
 				else {
-					$beans = $toolbox->getRedBean()->batch($type,$keys);
+					$beans = $this->redbean->batch($type,$keys);
 				}
 				$this->withSql = '';
 				$this->withParams = array();
